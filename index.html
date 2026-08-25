@@ -1295,7 +1295,6 @@
             .sidebar,
             .app-header,
             .btn,
-            .ad-container,
             .notification-banner,
             .app-footer,
             .cookie-consent {
@@ -1321,26 +1320,6 @@
             }
         }
 
-        .ad-container {
-            background: var(--bg-card);
-            border-radius: var(--radius-sm);
-            padding: 12px;
-            text-align: center;
-            border: 1px dashed var(--border);
-            min-height: 70px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 12px 0;
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-        }
-        .ad-container .ad-label {
-            font-size: 0.6rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            opacity: 0.5;
-        }
         .search-bar {
             display: flex;
             gap: 8px;
@@ -1522,12 +1501,6 @@
                     </div>
                 </div>
 
-                <!-- Top Ad -->
-                <div class="ad-container top-ad">
-                    <span class="ad-label">إعلان</span>
-                    <div style="font-size:0.7rem;color:var(--text-secondary);">YOUR_ADSENSE_CLIENT_ID</div>
-                </div>
-
                 <!-- Stats -->
                 <div class="stats-grid" id="statsGrid">
                     <div class="stat-card"><span class="stat-icon">🏫</span><div class="stat-value" id="statClasses">0</div><div class="stat-label">الأقسام</div></div>
@@ -1545,12 +1518,6 @@
                     <div class="chart-container"><canvas id="chartGradesDist"></canvas></div>
                     <div class="chart-container"><canvas id="chartAttendance"></canvas></div>
                     <div class="chart-container"><canvas id="chartSuccess"></canvas></div>
-                </div>
-
-                <!-- Bottom Ad -->
-                <div class="ad-container bottom-ad">
-                    <span class="ad-label">إعلان</span>
-                    <div style="font-size:0.7rem;color:var(--text-secondary);">YOUR_ADSENSE_CLIENT_ID</div>
                 </div>
             </div>
 
@@ -2304,35 +2271,13 @@
             $('cloudMessage').textContent = '✓ تم رفع البيانات.';
         }
 
-        // Improved restore function
-        async function restoreFromCloud(email, password) {
-            // If no cloudUser, try to sign in with provided credentials
-            if (!cloudUser && email && password) {
-                try {
-                    const cred = await auth.signInWithEmailAndPassword(email, password);
-                    cloudUser = cred.user;
-                    isCloudLinked = true;
-                    updateCloudStatus();
-                    toast('تم تسجيل الدخول.', 'success');
-                } catch (e) {
-                    toast('فشل تسجيل الدخول: ' + e.message, 'error');
-                    $('cloudMessage').textContent = '✗ ' + e.message;
-                    return;
-                }
-            }
-            if (!cloudUser) {
-                toast('يرجى إدخال البريد وكلمة المرور أو ربط الحساب أولاً.', 'warning');
-                $('cloudMessage').textContent = 'يرجى إدخال البريد وكلمة المرور.';
-                return;
-            }
+        async function restoreFromCloud() {
+            if (!cloudUser) { toast('اربط الحساب أولاً.', 'warning'); return; }
             try {
                 const uid = cloudUser.uid;
                 const snap = await db.ref(`users/${uid}/data`).once('value');
-                if (!snap.exists()) {
-                    toast('لا توجد بيانات في السحابة.', 'warning');
-                    $('cloudMessage').textContent = 'لا توجد بيانات.';
-                    return;
-                }
+                if (!snap.exists()) { toast('لا توجد بيانات في السحابة.', 'warning');
+                    $('cloudMessage').textContent = 'لا توجد بيانات.'; return; }
                 const data = snap.val();
                 allClasses = data.classes || [];
                 allStudents = data.students || [];
@@ -2548,7 +2493,7 @@
         }
 
         function renderClassSelects() {
-            ['studentFormClass', 'attendanceClass', 'gradeClass'].forEach(sid => {
+            ['studentFormClass', 'attendanceClass', 'gradeClass', 'reportClass'].forEach(sid => {
                 const sel = $(sid);
                 if (!sel) return;
                 const current = sel.value;
@@ -2660,7 +2605,7 @@
         }
 
         function renderStudentSelects() {
-            ['gradeFormStudent', 'evalStudent'].forEach(sid => {
+            ['gradeFormStudent', 'reportStudent', 'evalStudent'].forEach(sid => {
                 const sel = $(sid);
                 if (!sel) return;
                 const current = sel.value;
@@ -3072,6 +3017,10 @@
         }
 
         // ================================================================
+        // REPORTS (removed entirely)
+        // ================================================================
+
+        // ================================================================
         // SETTINGS
         // ================================================================
         $('settingsLightMode').addEventListener('click', () => { document.documentElement.removeAttribute('data-theme');
@@ -3098,49 +3047,14 @@
             renderAll();
         });
 
-        // Cloud buttons
+        // Cloud
         $('cloudLinkBtn').addEventListener('click', () => {
             const email = $('cloudEmail').value.trim();
             const pass = $('cloudPassword').value.trim();
             if (!email || !pass) { toast('أدخل البريد وكلمة المرور', 'warning'); return; }
             linkCloudAccount(email, pass);
         });
-
-        // Restore button now uses email/password from fields
-        $('cloudRestoreBtn').addEventListener('click', () => {
-            const email = $('cloudEmail').value.trim();
-            const pass = $('cloudPassword').value.trim();
-            if (!email || !pass) {
-                // If no credentials, try to use existing cloudUser
-                if (cloudUser) {
-                    restoreFromCloud();
-                } else {
-                    toast('يرجى إدخال البريد وكلمة المرور.', 'warning');
-                }
-                return;
-            }
-            restoreFromCloud(email, pass);
-        });
-
-        // Banner restore button uses fields too
-        $('bannerRestoreBtn').addEventListener('click', () => {
-            const email = $('cloudEmail').value.trim();
-            const pass = $('cloudPassword').value.trim();
-            if (!email || !pass) {
-                // Try to get from localStorage or use existing cloudUser
-                if (cloudUser) {
-                    restoreFromCloud();
-                    $('firstLaunchBanner').style.display = 'none';
-                } else {
-                    toast('يرجى إدخال البريد وكلمة المرور في الإعدادات أولاً.', 'warning');
-                    navigateTo('settings');
-                }
-                return;
-            }
-            restoreFromCloud(email, pass);
-            $('firstLaunchBanner').style.display = 'none';
-        });
-
+        $('cloudRestoreBtn').addEventListener('click', restoreFromCloud);
         $('cloudUnlinkBtn').addEventListener('click', unlinkCloudAccount);
         $('clearLocalDataBtn').addEventListener('click', () => { if (confirm('مسح جميع البيانات؟')) clearLocalData(); });
 
@@ -3396,6 +3310,9 @@
                 localStorage.setItem('teacherAssistantFirstLaunchSeen', 'true');
             }
         }
+        $('bannerRestoreBtn').addEventListener('click', () => { $('firstLaunchBanner').style.display = 'none';
+            navigateTo('settings'); if (isCloudLinked && cloudUser) restoreFromCloud();
+            else toast('اربط الحساب أولاً', 'warning'); });
         $('bannerLinkBtn').addEventListener('click', () => { $('firstLaunchBanner').style.display = 'none';
             navigateTo('settings');
             toast('اذهب لربط الحساب', 'info'); });
@@ -3447,7 +3364,7 @@
             navigator.serviceWorker.register('/service-worker.js').catch(() => {});
         }
 
-        console.log('مساعد الأستاذ - تم إصلاح استرجاع البيانات باستخدام البريد وكلمة المرور');
+        console.log('مساعد الأستاذ - تم إزالة التقارير والتقييم، إضافة تحذير الحساب غير مربوط');
     </script>
 
 </body>
